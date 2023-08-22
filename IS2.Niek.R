@@ -1,3 +1,14 @@
+#load packages
+
+library(mvtnorm)
+library(MCMCpack)
+library(rtdists)
+library(invgamma)
+library(mixtools)
+library(condMVNorm)
+library(parallel)
+library(corpcor)
+
 # Standard IS2 adjusted by Niek Stevenson
 # Rewritten to be easily adapted to use IS2 for other group level distributions
 # And updated in terms of speed and vectorized calculations
@@ -22,6 +33,7 @@ IS2 <- function(samples, filter = "sample", subfilter = 0, IS_samples = 1000, st
                                  var_tilde = all_pars$var_tilde,
                                  info = all_pars$info,
                                  mc.cores = n_cores)
+
   logw_den <- mvtnorm::dmvt(prop_theta, delta=muX, sigma=varX,df=df, log = TRUE)
   
   finished <- unlist(logw_num) - logw_den
@@ -46,7 +58,7 @@ get_sub_weights <- function(stepsize_particles, condMean, condVar, prop_theta, i
   # names for ll function to work
   colnames(particles) <- info$par_names
   # do lba log likelihood with given parameters for each subject, gets density of particle from ll func
-  lw_first <- apply(particles, 1, info$ll_func, dadm = data[[sub]])
+  lw_first <- apply(particles, 1, info$ll_func, data = data[data$subject == unique(data$subject)[[sub]],])
   # below gets second part of equation 5 numerator ie density under prop_theta
   lw_second <- apply(particles, 1, group_dist_IS2, prop_theta, FALSE, NULL, info)
   # below is the denominator - ie mix of density under conditional and density under pro_theta
@@ -171,7 +183,7 @@ group_dist_IS2 <- function(random_effect = NULL, parameters, sample = FALSE, n_s
   if (sample){
     return(rmvnorm(n_samples, param.theta.mu,param.theta.sig2))
   }else{
-    logw_second<-max(-1000*info$n_randeffect, dmvnorm(random_effect, param.theta.mu,param.theta.sig2,log=TRUE))
+    logw_second<-max(-1000*info$n_randeffect,  mvtnorm::dmvnorm(random_effect, param.theta.mu,param.theta.sig2,log=TRUE))
     return(logw_second)
   }
 }
@@ -184,7 +196,7 @@ prior_dist_IS2 <- function(parameters, info){
   param.theta.sig.unwound <- parameters[(n_randeffect+1):(length(parameters)-n_randeffect)]
   param.theta.sig2 <- unwind_IS2(param.theta.sig.unwound, reverse = TRUE)
   param.a <- exp(parameters[((length(parameters)-n_randeffect)+1):(length(parameters))])
-  log_prior_mu=dmvnorm(param.theta.mu, mean = prior$theta_mu_mean, sigma = prior$theta_mu_var, log =TRUE)
+  log_prior_mu= mvtnorm::dmvnorm(param.theta.mu, mean = prior$theta_mu_mean, sigma = prior$theta_mu_var, log =TRUE)
   log_prior_sigma = log(robust_diwish(param.theta.sig2, v=hyper$v_half+ n_randeffect-1, S = 2*hyper$v_half*diag(1/param.a)))
   log_prior_a = sum(logdinvGamma(param.a,shape = 1/2,rate=1/(hyper$A_half^2)))
   # These are Jacobian corrections for the transformations on these
