@@ -44,7 +44,7 @@ IS2 <- function(samples, filter = "sample", subfilter = 0, IS_samples = 1000, st
 }
 
 get_sub_weights <- function(stepsize_particles, condMean, condVar, prop_theta, info, sub){
-  wmix = c(.05, .95)
+  wmix = 0.95
   n1=stats::rbinom(n=1,size=stepsize_particles,prob=wmix)
   if (n1<2) n1=2
   if (n1>(stepsize_particles-2)) n1=stepsize_particles-2 ## These just avoid degenerate arrays.
